@@ -73,7 +73,7 @@ function App() {
       setPair(refreshedPair);
     };
 
-    // Update stats in background, don't reload pair immediately to keep stats visible
+    // Update stats in background, keep stats visible
     updateStats();
   };
 
@@ -86,19 +86,19 @@ function App() {
 
   return (
     <div style={{ textAlign: 'center', marginTop: '40px' }}>
-      <h1>Which foot pic is more popular?</h1>
+      <h1>FEETDLE!</h1>
 
       {pair.length === 2 && (
         <div
           style={{
             display: "flex",
             justifyContent: "center",
-            gap: "20px",
+            gap: "40px",
             marginTop: "20px",
           }}
         >
           {[0, 1].map((i) => (
-            <div key={pair[i].id}>
+            <div key={pair[i].id} style={{ textAlign: 'center' }}>
               <img
                 src={pair[i].image_url}
                 alt={`Foot ${pair[i].id}`}
@@ -107,6 +107,15 @@ function App() {
                 style={{ cursor: showStats ? "default" : "pointer" }}
                 onClick={() => !showStats && handleVote(i)}
               />
+              {showStats && (
+                <div style={{ marginTop: "10px", fontSize: "14px" }}>
+                  <p>Total votes: <b>{pair[i].votes}</b></p>
+                  <p>
+                    Win ratio:{" "}
+                    <b>{pair[i].votes > 0 ? (pair[i].wins / pair[i].votes).toFixed(2) : "0"}</b>
+                  </p>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -115,34 +124,17 @@ function App() {
       {feedback && <p style={{ marginTop: "20px", fontSize: "18px" }}>{feedback}</p>}
 
       {showStats && (
-        <div style={{ marginTop: "30px", fontSize: "16px" }}>
-          <p>
-            Total votes Left: <b>{pair[0].votes}</b>
-          </p>
-          <p>
-            Win ratio Left:{" "}
-            <b>{pair[0].votes > 0 ? (pair[0].wins / pair[0].votes).toFixed(2) : "0"}</b>
-          </p>
-          <p>
-            Total votes Right: <b>{pair[1].votes}</b>
-          </p>
-          <p>
-            Win ratio Right:{" "}
-            <b>{pair[1].votes > 0 ? (pair[1].wins / pair[1].votes).toFixed(2) : "0"}</b>
-          </p>
-
-          <button
-            onClick={handleNext}
-            style={{
-              marginTop: "20px",
-              padding: "10px 20px",
-              fontSize: "16px",
-              cursor: "pointer",
-            }}
-          >
-            Next
-          </button>
-        </div>
+        <button
+          onClick={handleNext}
+          style={{
+            marginTop: "30px",
+            padding: "10px 20px",
+            fontSize: "16px",
+            cursor: "pointer",
+          }}
+        >
+          Next
+        </button>
       )}
     </div>
   );
