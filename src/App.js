@@ -1,41 +1,46 @@
-import React, { useEffect, useState } from "react";
 import { supabase } from './supabaseClient';
+import React, { useEffect, useState } from "react";
 import "./App.css";
 
 const getRandomPair = async () => {
   const { data, error } = await supabase
     .from('foot_pics')
-    .select('*')
-    .limit(100); // Fetch enough to shuffle
+    .select('*');
 
   if (error) {
     console.error('Error fetching foot pics:', error.message);
     return [];
   }
+
   if (!data || data.length < 2) {
-    console.warn('Not enough foot pics.');
+    console.warn('Not enough foot pics to create a pair.');
     return [];
   }
 
-  const shuffled = data.sort(() => Math.random() - 0.5);
-  console.log("Fetched pair candidates:", shuffled.slice(0, 2));
+  // Shuffle and pick two
+  const shuffled = [...data].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, 2);
 };
 
 function App() {
   const [pair, setPair] = useState([]);
   const [feedback, setFeedback] = useState(null);
+  const [showStats, setShowStats] = useState(false); // controls visibility of stats
 
   useEffect(() => {
     const fetchPair = async () => {
       const newPair = await getRandomPair();
-      console.log("Initial pair loaded:", newPair);
       setPair(newPair);
+      setShowStats(false);
+      setFeedback(null);
     };
+
     fetchPair();
   }, []);
 
   const handleVote = (chosenIndex) => {
+    if (showStats) return; // disable voting if stats are showing
+
     const [left, right] = pair;
     const chosen = pair[chosenIndex];
     const other = pair[1 - chosenIndex];
@@ -45,77 +50,100 @@ function App() {
 
     const isCorrect = chosenScore >= otherScore;
     setFeedback(isCorrect ? "Correct! 🎉" : "Wrong 😬");
+    setShowStats(true);
 
     const updateStats = async () => {
-      try {
-        console.log("Updating votes for chosen id:", chosen.id);
-        const { error: chosenError } = await supabase
-          .from('foot_pics')
-          .update({
-            votes: Number(chosen.votes) + 1,
-            wins: isCorrect ? Number(chosen.wins) + 1 : Number(chosen.wins),
-          })
-          .eq('id', chosen.id);
-        if (chosenError) throw chosenError;
+      await supabase
+        .from('foot_pics')
+        .update({
+          votes: chosen.votes + 1,
+          wins: isCorrect ? chosen.wins + 1 : chosen.wins,
+        })
+        .eq('id', chosen.id);
 
-        console.log("Updating votes for other id:", other.id);
-        const { error: otherError } = await supabase
-          .from('foot_pics')
-          .update({
-            votes: Number(other.votes) + 1,
-          })
-          .eq('id', other.id);
-        if (otherError) throw otherError;
+      await supabase
+        .from('foot_pics')
+        .update({
+          votes: other.votes + 1,
+        })
+        .eq('id', other.id);
 
-        // Wait a bit to ensure DB consistency
-        await new Promise(r => setTimeout(r, 300));
-
-        // Fetch fresh data to update UI
-        const newPair = await getRandomPair();
-        console.log("New pair after vote update:", newPair);
-
-        setPair(newPair);
-        setFeedback(null);
-      } catch (err) {
-        console.error("Error updating stats:", err);
-        setFeedback("Something went wrong updating stats 😞");
-      }
+      // Refresh the pair data to get updated votes/wins
+      const refreshedPair = await getRandomPair();
+      setPair(refreshedPair);
     };
 
-    setTimeout(updateStats, 1000);
+    // Update stats in background, don't reload pair immediately to keep stats visible
+    updateStats();
+  };
+
+  const handleNext = async () => {
+    const newPair = await getRandomPair();
+    setPair(newPair);
+    setShowStats(false);
+    setFeedback(null);
   };
 
   return (
-    <div style={{ textAlign: "center", marginTop: "40px" }}>
-      <h2>Which foot pic is more popular?</h2>
+    <div style={{ textAlign: 'center', marginTop: '40px' }}>
+      <h1>Which foot pic is more popular?</h1>
 
       {pair.length === 2 && (
-        <div style={{ display: "flex", justifyContent: "center", gap: "40px", marginTop: "20px" }}>
-          {[0, 1].map(index => {
-            const foot = pair[index];
-            const ratio = foot.votes > 0 ? (foot.wins / foot.votes).toFixed(2) : "0.00";
-
-            return (
-              <div key={foot.id}>
-                <img
-                  src={foot.image_url}
-                  alt={`Foot ${foot.id}`}
-                  width="250"
-                  height="250"
-                  style={{ cursor: "pointer", borderRadius: "10px" }}
-                  onClick={() => handleVote(index)}
-                />
-                <div style={{ marginTop: "10px", fontSize: "14px", color: "#666" }}>
-                  Total votes: {foot.votes}<br />
-                  Win ratio: {ratio}
-                </div>
-              </div>
-            );
-          })}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "20px",
+            marginTop: "20px",
+          }}
+        >
+          {[0, 1].map((i) => (
+            <div key={pair[i].id}>
+              <img
+                src={pair[i].image_url}
+                alt={`Foot ${pair[i].id}`}
+                width="200"
+                height="200"
+                style={{ cursor: showStats ? "default" : "pointer" }}
+                onClick={() => !showStats && handleVote(i)}
+              />
+            </div>
+          ))}
         </div>
       )}
 
-      {feedback && <h3 style={{ marginTop: "20px" }}>{feedback}</h3>}
+      {feedback && <p style={{ marginTop: "20px", fontSize: "18px" }}>{feedback}</p>}
+
+      {showStats && (
+        <div style={{ marginTop: "30px", fontSize: "16px" }}>
+          <p>
+            Total votes Left: <b>{pair[0].votes}</b>
+          </p>
+          <p>
+            Win ratio Left:{" "}
+            <b>{pair[0].votes > 0 ? (pair[0].wins / pair[0].votes).toFixed(2) : "0"}</b>
+          </p>
+          <p>
+            Total votes Right: <b>{pair[1].votes}</b>
+          </p>
+          <p>
+            Win ratio Right:{" "}
+            <b>{pair[1].votes > 0 ? (pair[1].wins / pair[1].votes).toFixed(2) : "0"}</b>
+          </p>
+
+          <button
+            onClick={handleNext}
+            style={{
+              marginTop: "20px",
+              padding: "10px 20px",
+              fontSize: "16px",
+              cursor: "pointer",
+            }}
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   );
 }
