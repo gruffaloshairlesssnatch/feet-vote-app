@@ -25,7 +25,7 @@ const getRandomPair = async () => {
 function App() {
   const [pair, setPair] = useState([]);
   const [feedback, setFeedback] = useState(null);
-  const [showStats, setShowStats] = useState(false); // controls visibility of stats
+  const [showStats, setShowStats] = useState(false); // controls stats visibility
 
   useEffect(() => {
     const fetchPair = async () => {
@@ -67,13 +67,8 @@ function App() {
           votes: other.votes + 1,
         })
         .eq('id', other.id);
-
-      // Refresh the pair data to get updated votes/wins
-      const refreshedPair = await getRandomPair();
-      setPair(refreshedPair);
     };
 
-    // Update stats in background, keep stats visible
     updateStats();
   };
 
